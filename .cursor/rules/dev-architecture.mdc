@@ -1,0 +1,22 @@
+---
+description: Architecture principles — composition, dependency injection, interfaces, explicit data flow, and tests. Use when designing, scaffolding, or implementing code in any project.
+alwaysApply: false
+---
+
+# Architecture Principles
+
+- **Composition over inheritance** — inject dependencies instead of subclassing for reuse
+- **Interfaces over singletons** — keep seams for testing and substitution
+- **Explicit over implicit** — make data flow and dependencies obvious
+- **Test-driven when possible** — never disable tests; fix them
+
+```python
+# ❌ BAD — hidden global, hard to test
+class Cache:
+    _instance = None
+
+# ✅ GOOD — injected collaborator
+class OrderService:
+    def __init__(self, cache: CachePort) -> None:
+        self._cache = cache
+```

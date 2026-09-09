@@ -1,0 +1,20 @@
+---
+description: Core development philosophy for every project in this workspace
+alwaysApply: true
+---
+
+# Development Philosophy
+
+## Core beliefs
+
+- **Incremental progress over big bangs** — small changes that compile and pass tests
+- **Learn from existing code** — study and plan before implementing
+- **Pragmatic over dogmatic** — adapt to project reality
+- **Clear intent over clever code** — be boring and obvious
+
+## Simplicity
+
+- Single responsibility per function/class
+- Avoid premature abstractions
+- No clever tricks — choose the boring solution
+- If you need to explain it, it is too complex

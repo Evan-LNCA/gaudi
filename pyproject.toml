@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gaudi"
+version = "0.1.0"
+description = "Ranked signature map for Cursor agents (tree-sitter + PageRank)"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "tree-sitter>=0.23",
+  "tree-sitter-language-pack>=0.7",
+  "networkx>=3.2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+gaudi = "gaudi.cli:main"
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+gaudi = ["assets/*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "-q"
