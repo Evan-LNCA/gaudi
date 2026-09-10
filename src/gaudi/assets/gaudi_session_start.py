@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Cursor sessionStart hook. Cheap SHA check only; never dump MAP.md."""
+"""Cursor sessionStart hook. Cheap SHA check only; never dump .map."""
 from __future__ import annotations
 
 import json

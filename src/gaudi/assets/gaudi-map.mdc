@@ -5,12 +5,12 @@ alwaysApply: true
 
 # Gaudi map
 
-Before cross-file orientation, Read `.cursor/gaudi/MAP.md`.
+Before cross-file orientation, Read `.map`.
 
 - The map is ranked signatures, not ownership or behavior.
 - Grep and Read every file you will change. Do not edit from the map alone.
 - If the map is missing or `gaudi status` is stale, run `gaudi generate` first.
-- Never hand-edit `MAP.md`. Never `@`-include it from this or any rule.
+- Never hand-edit `.map`. Never `@`-include it from this or any rule.
 - Cloud Agent does not run sessionStart; generate if the file is missing.
 
 Do not treat path rank as people or ownership.

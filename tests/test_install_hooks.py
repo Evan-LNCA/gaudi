@@ -46,16 +46,17 @@ def test_install_idempotent_preserves_other_hooks(git_repo) -> None:
     assert 15 <= n <= 25, n
     gi = (git_repo / ".gitignore").read_text(encoding="utf-8")
     assert gi.count(GITIGNORE_LINE) == 1
+    assert gi.count(".gaudi/") == 1
     di = (git_repo / ".dockerignore").read_text(encoding="utf-8")
-    assert di.count(".cursor/gaudi/") == 1
-    assert di.count(".cursor/") >= 1
+    assert di.count(".map") == 1
+    assert di.count(".gaudi/") == 1
     assert (git_repo / MAP_REL).is_file()
     check_ship(git_repo)
 
 
 def test_check_ship_fails_when_dist_contains_map(git_repo) -> None:
     install(git_repo, python_cmd="python")
-    planted = git_repo / "dist" / ".cursor" / "gaudi" / "MAP.md"
+    planted = git_repo / "dist" / ".map"
     planted.parent.mkdir(parents=True, exist_ok=True)
     planted.write_text("leaked\n", encoding="utf-8")
     with pytest.raises(ShipError, match="dist"):
@@ -78,7 +79,7 @@ def test_session_start_two_lines_no_bodies(git_repo) -> None:
     assert "def foo" not in ctx
     assert "def helper" not in ctx
     assert "def bar" not in ctx
-    assert MAP_REL.as_posix() in ctx or "MAP.md" in ctx
+    assert MAP_REL.as_posix() in ctx
     assert ctx.count("\n") <= 3
 
 
@@ -117,13 +118,17 @@ def test_merge_hooks_detects_py_dash_three() -> None:
 
 
 def test_install_copilot_instructions_and_targets(git_repo) -> None:
-    from gaudi.paths import COPILOT_INSTRUCTIONS_REL, RULE_REL
+    from gaudi.paths import COPILOT_INSTRUCTIONS_REL, COPILOT_SKILL_REL, RULE_REL
 
     # Target: copilot only
     install(git_repo, python_cmd="python", target="copilot")
     assert (git_repo / COPILOT_INSTRUCTIONS_REL).is_file()
     text = (git_repo / COPILOT_INSTRUCTIONS_REL).read_text(encoding="utf-8")
     assert "## Gaudi Map" in text
+    skill = (git_repo / COPILOT_SKILL_REL).read_text(encoding="utf-8")
+    assert "name: gaudi" in skill
+    assert "gaudi status" in skill
+    assert "gaudi generate" in skill
     assert not (git_repo / RULE_REL).exists()
 
     # Target: all (idempotent, adds cursor rule without duplicating copilot section)
@@ -131,4 +136,3 @@ def test_install_copilot_instructions_and_targets(git_repo) -> None:
     assert (git_repo / RULE_REL).is_file()
     text2 = (git_repo / COPILOT_INSTRUCTIONS_REL).read_text(encoding="utf-8")
     assert text2.count("## Gaudi Map") == 1
-

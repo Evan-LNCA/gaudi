@@ -27,7 +27,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--root", type=str, default=None, help="Workspace root (default: cwd)")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
-    gen = sub.add_parser("generate", help="Parse git ls-files and write .cursor/gaudi/MAP.md")
+    gen = sub.add_parser("generate", help="Parse git ls-files, update ignore files, and write .map")
     gen.add_argument("--map-tokens", type=int, default=None)
 
     sub.add_parser("status", help="Exit 0 if map matches HEAD and tracked source hashes")

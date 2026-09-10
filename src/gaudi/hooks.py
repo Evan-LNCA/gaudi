@@ -21,7 +21,7 @@ def _workspace_root(payload: dict[str, Any]) -> Path:
 
 
 def handle_session_start(payload: dict[str, Any]) -> dict[str, Any]:
-    """Cheap SHA/freshness check. Never includes MAP.md body."""
+    """Cheap SHA/freshness check. Never includes .map body."""
     root = _workspace_root(payload)
     try:
         GitRepo(root).require()

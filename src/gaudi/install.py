@@ -10,13 +10,19 @@ from gaudi.gitutil import GitRepo
 from gaudi.mapgen import generate
 from gaudi.paths import (
     COPILOT_INSTRUCTIONS_REL,
+    COPILOT_SKILL_REL,
     HOOK_START_REL,
     HOOK_STOP_REL,
     HOOKS_JSON_REL,
     RULE_REL,
     under,
 )
-from gaudi.ship import GITIGNORE_LINE, dockerignore_lines, ensure_ignore_lines
+from gaudi.ship import (
+    GITIGNORE_LINE,
+    dockerignore_lines,
+    ensure_ignore_lines,
+    update_all_ignore_files,
+)
 
 
 def detect_python_command() -> str:
@@ -88,8 +94,7 @@ def install(
     git.require()
     python_cmd = python_cmd or detect_python_command()
 
-    ensure_ignore_lines(root / ".gitignore", [GITIGNORE_LINE])
-    ensure_ignore_lines(root / ".dockerignore", dockerignore_lines())
+    update_all_ignore_files(root)
 
     install_cursor = target in ("cursor", "all", "both")
     install_copilot = target in ("copilot", "all", "both")
@@ -121,6 +126,6 @@ def install(
         section_text = _asset_text("copilot-instructions-section.md")
         merged_text = merge_copilot_instructions(existing_text, section_text)
         copilot_file.write_text(merged_text, encoding="utf-8")
+        _copy_asset("gaudi-skill.md", under(root, COPILOT_SKILL_REL))
 
     generate(root)
-

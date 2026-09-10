@@ -3,18 +3,19 @@ from __future__ import annotations
 from pathlib import Path
 
 from gaudi.errors import ShipError
-from gaudi.paths import GAUDI_DIR
+from gaudi.paths import GAUDI_DIR, MAP_REL
 
-GITIGNORE_LINE = ".cursor/gaudi/"
-DOCKERIGNORE_GAUDI = ".cursor/gaudi/"
-DOCKERIGNORE_CURSOR = ".cursor/"
+IGNORE_LINES = [".map", ".gaudi/"]
+GITIGNORE_LINE = ".map"
+GITIGNORE_LINES = list(IGNORE_LINES)
+DOCKERIGNORE_LINES = list(IGNORE_LINES)
 
 
 def dockerignore_lines() -> list[str]:
-    return [DOCKERIGNORE_GAUDI, DOCKERIGNORE_CURSOR]
+    return list(IGNORE_LINES)
 
 
-def ensure_ignore_lines(path: Path, lines: list[str]) -> None:
+def ensure_ignore_lines(path: Path, lines: list[str]) -> bool:
     existing: list[str] = []
     if path.is_file():
         text = path.read_text(encoding="utf-8")
@@ -27,39 +28,69 @@ def ensure_ignore_lines(path: Path, lines: list[str]) -> None:
             have.add(line.strip())
             changed = True
     if not path.is_file() or changed:
-        body = "\n".join(existing).rstrip() + "\n"
-        path.write_text(body, encoding="utf-8")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        body = "\n".join(existing).rstrip()
+        path.write_text((body + "\n") if body else "", encoding="utf-8")
+    return changed
 
 
-def _dockerignore_excludes_gaudi(text: str) -> bool:
+def update_all_ignore_files(root: Path) -> list[Path]:
+    updated: list[Path] = []
+    # Always ensure .gitignore and .dockerignore
+    for base in (".gitignore", ".dockerignore"):
+        target = root / base
+        ensure_ignore_lines(target, IGNORE_LINES)
+        updated.append(target)
+
+    # Check for any other *ignore files in repo root
+    try:
+        for entry in root.iterdir():
+            if not entry.is_file():
+                continue
+            name_lower = entry.name.lower()
+            if name_lower == ".cursorignore":
+                continue
+            if name_lower.endswith("ignore") and entry.name not in {".gitignore", ".dockerignore"}:
+                ensure_ignore_lines(entry, IGNORE_LINES)
+                updated.append(entry)
+    except OSError:
+        pass
+    return updated
+
+
+def _dockerignore_excludes_map(text: str) -> bool:
     patterns = []
     for raw in text.splitlines():
         line = raw.strip()
         if not line or line.startswith("#"):
             continue
         patterns.append(line.rstrip("/"))
+    has_map = any(pat in {".map", "**/.map", ".*"} for pat in patterns)
+    has_gaudi = any(pat in {".gaudi", "**/.gaudi", ".*"} for pat in patterns)
     for pat in patterns:
-        if pat in {".cursor", ".cursor/gaudi", "**/.cursor", "**/.cursor/gaudi"}:
-            return True
-        if pat.startswith("!") and "cursor" in pat:
-            continue
-    return False
+        if pat.startswith("!"):
+            if ".map" in pat or pat == "!map":
+                has_map = False
+            if ".gaudi" in pat or pat == "!gaudi":
+                has_gaudi = False
+    return has_map and has_gaudi
 
 
 def check_ship(root: Path) -> None:
     for artifact in ("dist", "build"):
-        nested = root / artifact / ".cursor" / "gaudi"
-        if nested.exists():
-            raise ShipError(
-                f"{artifact}/ contains .cursor/gaudi/; refuse to ship the map"
-            )
+        for leak in (".map", ".gaudi", Path(".cursor") / "gaudi"):
+            nested = root / artifact / leak
+            if nested.exists():
+                raise ShipError(
+                    f"{artifact}/ contains {leak}; refuse to ship the map"
+                )
 
     dockerignore = root / ".dockerignore"
     if not dockerignore.is_file():
         raise ShipError(
-            "No .dockerignore; `COPY . .` would include .cursor/gaudi/. Run `gaudi install`."
+            "No .dockerignore; `COPY . .` would include .map. Run `gaudi generate`."
         )
-    if not _dockerignore_excludes_gaudi(dockerignore.read_text(encoding="utf-8")):
+    if not _dockerignore_excludes_map(dockerignore.read_text(encoding="utf-8")):
         raise ShipError(
-            ".dockerignore does not exclude .cursor/gaudi/ or .cursor/; `COPY . .` would ship the map"
+            ".dockerignore does not exclude .map and .gaudi/; `COPY . .` would ship the map"
         )

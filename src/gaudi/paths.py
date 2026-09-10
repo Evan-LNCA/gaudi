@@ -1,18 +1,19 @@
 from pathlib import Path
 
-GAUDI_DIR = Path(".cursor") / "gaudi"
-MAP_REL = GAUDI_DIR / "MAP.md"
+GAUDI_DIR = Path(".gaudi")
+MAP_REL = Path(".map")
 CACHE_REL = GAUDI_DIR / "cache"
 CACHE_FILE = CACHE_REL / "tags.json"
 CONFIG_REL = GAUDI_DIR / "config.json"
 RULE_REL = Path(".cursor") / "rules" / "gaudi-map.mdc"
 COPILOT_INSTRUCTIONS_REL = Path(".github") / "copilot-instructions.md"
+COPILOT_SKILL_REL = Path(".github") / "skills" / "gaudi" / "SKILL.md"
 HOOKS_JSON_REL = Path(".cursor") / "hooks.json"
 HOOK_START_REL = Path(".cursor") / "hooks" / "gaudi_session_start.py"
 HOOK_STOP_REL = Path(".cursor") / "hooks" / "gaudi_stop.py"
 
 DEFAULT_MAP_TOKENS = 2048
-SKIP_DIR_NAMES = frozenset({".venv", "node_modules", "dist", "build"})
+SKIP_DIR_NAMES = frozenset({".venv", "node_modules", "dist", "build", ".gaudi"})
 
 SOURCE_SUFFIXES = {
     ".py": "python",

@@ -107,3 +107,42 @@ def test_empty_tree_writes_map_no_crash(tmp_path: Path) -> None:
     assert HEADER_MARK in text
     assert "empty" in text.lower()
     assert status_code(repo) == 0
+
+
+def test_generate_creates_dot_map_at_root(git_repo) -> None:
+    dest = generate(git_repo)
+    assert dest == git_repo / ".map"
+    assert (git_repo / ".map").is_file()
+    assert (git_repo / ".gaudi" / "config.json").is_file()
+    assert (git_repo / ".gaudi" / "cache" / "tags.json").is_file()
+
+
+def test_generate_automatically_updates_all_ignore_files(tmp_path: Path) -> None:
+    repo = init_repo(tmp_path / "fresh")
+    (repo / "index.js").write_text("function main() {}\n", encoding="utf-8")
+    commit_all(repo, "initial")
+
+    # Pre-populate an existing .npmignore and .cursorignore, but no .gitignore or .dockerignore yet
+    (repo / ".npmignore").write_text("build/\n", encoding="utf-8")
+    (repo / ".cursorignore").write_text("secrets.txt\n", encoding="utf-8")
+
+    assert not (repo / ".gitignore").exists()
+    assert not (repo / ".dockerignore").exists()
+
+    generate(repo)
+
+    gi = (repo / ".gitignore").read_text(encoding="utf-8")
+    assert ".map" in gi
+    assert ".gaudi/" in gi
+
+    di = (repo / ".dockerignore").read_text(encoding="utf-8")
+    assert ".map" in di
+    assert ".gaudi/" in di
+
+    ni = (repo / ".npmignore").read_text(encoding="utf-8")
+    assert "build/" in ni
+    assert ".map" in ni
+    assert ".gaudi/" in ni
+
+    ci = (repo / ".cursorignore").read_text(encoding="utf-8")
+    assert ".map" not in ci

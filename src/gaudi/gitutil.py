@@ -54,7 +54,7 @@ class GitRepo:
             if len(line) < 4:
                 continue
             path = line[3:].strip().replace("\\", "/")
-            if path.startswith(".cursor/gaudi"):
+            if path == ".map" or path.startswith((".gaudi", ".cursor/gaudi")):
                 continue
             return True
         return False

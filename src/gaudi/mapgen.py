@@ -10,6 +10,7 @@ from gaudi.extract import DefTag, FileTags, ParserPort, TreeSitterParsers, extra
 from gaudi.gitutil import GitRepo
 from gaudi.paths import CONFIG_REL, DEFAULT_MAP_TOKENS, MAP_REL, should_skip, under
 from gaudi.rank import pagerank_defs
+from gaudi.ship import update_all_ignore_files
 
 HEADER_MARK = "GENERATED — do not hand-edit"
 _HEAD_RE = re.compile(r"^head:\s*(\S+)\s*$", re.M)
@@ -169,6 +170,7 @@ def _render_file(path: str, defs: list) -> str:
 def generate(root: Path, map_tokens: int | None = None, parsers: ParserPort | None = None) -> Path:
     git = GitRepo(root)
     git.require()
+    update_all_ignore_files(root)
     write_default_config(root)
     tokens = load_map_tokens(root, map_tokens)
     tags, tree = collect_tags(root, git, parsers=parsers)
