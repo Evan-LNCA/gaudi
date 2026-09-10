@@ -1,16 +1,43 @@
 # Gaudi
 
-Ranked signature map for AI coding agents (GitHub Copilot and Cursor). Parses Python, JavaScript, and TypeScript with tree-sitter, ranks defs with PageRank, and writes a **cues-only** outline to `.map` in the repository root. Agents still **Read** real files. Nobody hand-edits the map.
+Gaudi generates a ranked signature map for AI coding agents such as GitHub
+Copilot and Cursor. It parses Python, JavaScript, and TypeScript with
+tree-sitter, ranks definitions with a PageRank-style graph, and writes a
+**cues-only** outline to `.map` in the repository root.
 
-Requires Python 3.11+. No Aider.
+The map is an orientation aid, not source code. Agents should use it to find
+likely architectural hubs, then read the real files before editing. Nobody
+hand-edits `.map`.
 
-## Install the CLI (once)
+## Requirements
+
+- Python 3.11+
+- Git
+- No Aider dependency
+
+Runtime dependencies are declared in `pyproject.toml`:
+
+- `tree-sitter`
+- `tree-sitter-language-pack`
+- `networkx`
+
+## Install for local development
+
+From this repository:
 
 ```powershell
 pip install -e C:\Users\einfantino\projects\gaudi
 ```
 
-## Use in any repo
+To include the test dependency:
+
+```powershell
+pip install -e C:\Users\einfantino\projects\gaudi[dev]
+```
+
+## CLI commands
+
+Run commands from the target repository that should receive a map:
 
 ```powershell
 cd C:\Users\einfantino\projects\<repo>
@@ -19,46 +46,95 @@ gaudi status
 gaudi check-ship
 ```
 
-`gaudi generate` is standalone and self-contained:
-- Automatically secures `.map` and `.gaudi/` in `.gitignore`, `.dockerignore`, and any other `*ignore` files in the repository.
-- Generates the map at `.map` in the repository root.
-- Caches tags and stores configuration in `.gaudi/`.
+| Command | Purpose |
+|---|---|
+| `gaudi generate` | Parse tracked source files, update ignore files, cache tags, and write `.map`. |
+| `gaudi status` | Exit 0 only when `.map` matches the current Git/source-tree state. |
+| `gaudi check-ship` | Fail if the map could be copied into Docker/build/dist output. |
+| `gaudi install [--target all\|cursor\|copilot]` | Install agent-facing instructions/hooks, update ignore files, and generate the map. |
 
-Optional environment integration:
-```powershell
-gaudi install [--target all|cursor|copilot]
-```
-`install` is idempotent. It merges `.cursor/hooks.json` (for Cursor), appends instructions to `.github/copilot-instructions.md` (for GitHub Copilot), installs the `.github/skills/gaudi/SKILL.md` Copilot skill, writes `.cursor/rules/gaudi-map.mdc`, appends ignore rules, and generates `.map`.
+`gaudi generate` is standalone and self-contained. It automatically secures
+`.map` and `.gaudi/` in `.gitignore`, `.dockerignore`, and any other existing
+`*ignore` files in the repository.
 
-The Copilot skill teaches agents that a request to generate or refresh a Gaudi
-map means running `gaudi generate`, checking freshness with `gaudi status`, and
-reading real source files rather than treating `.map` as authoritative.
+## Generated files
 
-Map path is `.map`. Cache: `.gaudi/cache/`. Config: `.gaudi/config.json` (`map_tokens`: 2048).
+| Path | Purpose | Commit? |
+|---|---|---|
+| `.map` | Ranked, cues-only signature map. | No |
+| `.gaudi/cache/` | Parsed tag cache keyed by content hash. | No |
+| `.gaudi/config.json` | Local configuration, currently `map_tokens`. | No |
+| `.github/copilot-instructions.md` | Copilot orientation instructions installed by `gaudi install --target copilot` or `all`. | Usually yes |
+| `.github/skills/gaudi/SKILL.md` | Copilot skill that teaches agents what “generate a Gaudi map” means. | Usually yes |
+| `.cursor/rules/gaudi-map.mdc` | Cursor rule for reading and refreshing the map. | Usually yes |
+| `.cursor/hooks.json` and `.cursor/hooks/gaudi_*.py` | Cursor lifecycle hooks. | Usually yes |
 
-## Never ship the map
+The default map budget is 2048 tokens and can be changed in
+`.gaudi/config.json` or with `gaudi generate --map-tokens <n>`.
 
-`gaudi generate` and `install` append:
+## Agent behavior
+
+`gaudi install` is idempotent. It wires the target repository so agents know
+how to use Gaudi:
+
+- GitHub Copilot gets `.github/copilot-instructions.md`.
+- GitHub Copilot also gets `.github/skills/gaudi/SKILL.md`.
+- Cursor gets `.cursor/rules/gaudi-map.mdc`.
+- Cursor gets session lifecycle hooks.
+
+The Copilot skill teaches agents that a request to generate, refresh, or update
+a Gaudi map means:
+
+1. Verify the Gaudi CLI is available.
+2. Run `gaudi generate` from the target repository root.
+3. Use `gaudi status` to detect staleness before relying on an existing map.
+4. Treat `.map` as orientation-only and read real source files before editing.
+
+## Freshness model
+
+`.map` records the Git `HEAD`, dirty state, and a source-tree fingerprint.
+`gaudi status` recomputes freshness and returns success only when the current
+repository matches the map header and tree fingerprint.
+
+Cursor integration uses two hooks:
+
+- **sessionStart:** cheap `HEAD`/dirty check; injects a short status message
+  such as `Gaudi map: fresh` or `Gaudi map: STALE — run gaudi generate before
+  Read`. It never dumps the map body and does not regenerate.
+- **stop:** full freshness check; regenerates with `gaudi generate` if stale.
+
+Cloud Agent does not run Cursor's `sessionStart` hook. The installed Copilot
+instructions and skill tell it to run `gaudi generate` if `.map` is missing or
+stale.
+
+## Shipping safety
+
+Generated maps are local development artifacts and should not be shipped.
+`gaudi generate` and `gaudi install` append:
 
 - `.gitignore` → `.map` and `.gaudi/`
 - `.dockerignore` → `.map` and `.gaudi/` (covers `COPY . .`)
 - Any existing `*ignore` files (e.g. `.npmignore`, `.vercelignore`, `.helmignore`) → `.map` and `.gaudi/`
 
-The map is **not** added to `.cursorignore` (the Agent must be able to Read it). Run `gaudi check-ship` before you bake an image or publish `dist/`.
+The map is **not** added to `.cursorignore` because the agent must be able to
+read it. Run `gaudi check-ship` before baking an image or publishing build
+artifacts.
 
-## Hooks (project-level)
+## Development
 
-- **sessionStart:** cheap SHA/dirty check; injects ~2 lines of `additional_context`. Never dumps `.map`. Fire-and-forget (does not regenerate).
-- **stop:** regenerates if the map is stale vs the worktree. Fail-open if `gaudi` is not installed.
-- **afterFileEdit:** not used (body edits do not change signatures).
+Run the test suite:
 
-This repo does **not** replace `C:\Users\einfantino\.cursor\hooks.json` (keep the existing noop `sessionStart` and logbook `stop`).
+```powershell
+pytest -q
+```
 
-### Cloud Agent
+The package uses a `src/` layout. The console entry point is:
 
-`sessionStart` does not run on Cloud Agent. The map is gitignored, so a cloud session starts without `.map`. The project rule still tells the agent to run `gaudi generate` if the file is missing. Cloud must have this package installed or generate is a no-op.
+```text
+gaudi = gaudi.cli:main
+```
 
-## Cursor Settings / Hooks tab (manual — Evan)
+## Cursor setup notes
 
 Gaudi cannot flip IDE settings. After the first `gaudi install` in a real project:
 
@@ -69,6 +145,6 @@ Gaudi cannot flip IDE settings. After the first `gaudi install` in a real projec
 
 Until those steps are confirmed, hook runtime in Cursor is **unverified**.
 
-## Slash command
+## User skill source
 
 User skill: `/gaudi` (`disable-model-invocation: true`) at `C:\Users\einfantino\.cursor\skills\gaudi\SKILL.md` (source copy in this repo: `skills/gaudi/SKILL.md`).
