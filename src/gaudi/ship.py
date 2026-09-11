@@ -66,7 +66,7 @@ def _dockerignore_excludes_map(text: str) -> bool:
         if not line or line.startswith("#"):
             continue
         patterns.append(line)
-    spec = PathSpec.from_lines("gitwildmatch", patterns)
+    spec = PathSpec.from_lines("gitignore", patterns)
     return spec.match_file(".map") and spec.match_file(".gaudi/keep")
 
 
