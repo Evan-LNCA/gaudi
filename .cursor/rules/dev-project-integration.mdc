@@ -1,0 +1,23 @@
+---
+description: How to fit into an existing or new project — tooling, conventions, and learning the codebase
+alwaysApply: true
+---
+
+# Project Integration
+
+## Learn the codebase first
+
+- Find similar features/components and follow those patterns
+- Reuse existing libraries and utilities
+- Follow existing test patterns
+
+## Tooling
+
+- Use the project's existing build system, test framework, formatter, and linter
+- Do not introduce new tools without strong justification
+
+## Code style
+
+- Follow existing conventions in the project
+- Honor linter configs and `.editorconfig` when present
+- Text files must end with a trailing newline
