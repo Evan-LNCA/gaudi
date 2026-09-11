@@ -79,11 +79,11 @@ def test_focus_path_seed_does_not_match_sibling_prefixes(tmp_path: Path) -> None
     repo = init_repo(tmp_path / "focus-prefix")
     (repo / ".gitignore").write_text(".map\n.gaudi/\n", encoding="utf-8")
     (repo / ".dockerignore").write_text(".map\n.gaudi/\n", encoding="utf-8")
-    (repo / "src").mkdir()
-    (repo / "src" / "app.py").write_text("def wanted():\n    return 1\n", encoding="utf-8")
+    (repo / "src" / "app").mkdir(parents=True)
+    (repo / "src" / "app" / "core.py").write_text("def wanted():\n    return 1\n", encoding="utf-8")
     (repo / "src" / "application.py").write_text("def sibling():\n    return 2\n", encoding="utf-8")
     commit_all(repo, "init")
     out = run_focus(repo, ["src/app"], tokens=64)
     body = out.text.split("\n\n", 1)[1]
-    assert body.startswith("src/app.py:\n")
+    assert body.startswith("src/app/core.py:\n")
     assert "src/application.py:" not in body
