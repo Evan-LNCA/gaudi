@@ -1,0 +1,21 @@
+---
+description: Non-negotiable development constraints for every project in this workspace
+alwaysApply: true
+---
+
+# Hard Constraints
+
+## Never
+
+- Use `--no-verify` to bypass commit hooks
+- Disable tests instead of fixing them
+- Commit code that does not compile
+- Make assumptions — verify against existing code
+- Silently swallow exceptions
+
+## Always
+
+- Commit working code incrementally (only when the user asks to commit)
+- Update plan documentation as you go
+- Learn from existing implementations
+- Stop after 3 failed attempts and reassess

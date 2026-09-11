@@ -1,0 +1,25 @@
+---
+description: Error-handling standards — fail fast, include context, handle at the right layer. Use when writing code that can fail, catching exceptions, or designing APIs.
+alwaysApply: false
+---
+
+# Error Handling
+
+- **Fail fast** with a descriptive message
+- **Include context** that helps debugging (what was attempted, with which inputs)
+- **Handle errors at the appropriate level** — do not catch just to recast as a vague failure
+- **Never** silently swallow exceptions
+
+```python
+# ❌ BAD
+try:
+    save(record)
+except Exception:
+    pass
+
+# ✅ GOOD
+try:
+    save(record)
+except OSError as exc:
+    raise RecordStoreError(f"Failed to save record {record.id}") from exc
+```

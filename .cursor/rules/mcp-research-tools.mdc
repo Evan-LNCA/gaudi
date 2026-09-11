@@ -1,0 +1,12 @@
+---
+description: Which MCP/search tools to use when looking up library docs or researching software. Use when validating documentation, searching the web, or fetching library APIs.
+alwaysApply: false
+---
+
+# Research Tool Priority
+
+When checking current docs or researching a library:
+
+1. **Context7** — validate current documentation about software libraries
+2. **searxng** — fallback if primary Web Search or Fetch tools fail
+3. **Tavily** — only if searxng does not give enough information

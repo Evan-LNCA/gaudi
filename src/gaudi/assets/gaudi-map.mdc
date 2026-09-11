@@ -1,0 +1,21 @@
+---
+description: Gaudi ranked signature map — cues only, not source of truth
+alwaysApply: true
+---
+
+# Gaudi map
+
+Use a small index plus on-demand focus. Do not always Read `.map`.
+
+1. Run `gaudi index` (~250 tokens) for hubs and directory shape.
+2. Run `gaudi focus <path-or-symbol>` for the working area. It prints to stdout and never writes `.map`.
+3. Run `gaudi where <symbol>` for `path:line` plus signature (~10 tokens).
+
+- Output is ranked signatures, not ownership or behavior.
+- Grep and Read every file you will change. Do not edit from Gaudi output alone.
+- If output is missing or the freshness line says stale, run `gaudi generate` to refresh, then retry the query.
+- Never hand-edit `.map`. Never `@`-include `.map` from this or any rule.
+- Truncation is explicit: `⋮ +N more defs` and `showing N of M files`.
+- Trust the freshness line. Do not treat a stale answer as current.
+
+Do not treat path rank as people or ownership.
