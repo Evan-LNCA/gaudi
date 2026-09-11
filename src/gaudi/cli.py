@@ -41,7 +41,7 @@ def main(argv: list[str] | None = None) -> int:
     inst = sub.add_parser("install", help="Merge hooks/ignores, write rule/instructions, generate map")
     inst.add_argument(
         "--target",
-        choices=["all", "cursor", "copilot"],
+        choices=["all", "both", "cursor", "copilot"],
         default="all",
         help="Target environment (default: all)",
     )

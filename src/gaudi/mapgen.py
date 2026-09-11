@@ -430,7 +430,18 @@ def is_fresh(root: Path, parsers: ParserPort | None = None, *, no_git: bool = Fa
     lister = detect_lister(root, no_git=no_git)
     if head != lister.head_sha():
         return False
-    _, current_tree = collect_tags(root, lister, parsers=parsers, save=False, no_git=no_git)
+    cache = TagCache(root, readonly=True)
+    try:
+        _, current_tree = collect_tags(
+            root,
+            lister,
+            parsers=parsers,
+            cache=cache,
+            save=False,
+            no_git=no_git,
+        )
+    finally:
+        cache.close()
     return tree == current_tree
 
 

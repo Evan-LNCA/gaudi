@@ -294,10 +294,10 @@ def _kind_from_capture(capture: str) -> str:
 
 
 def _dedupe_defs(defs: list[DefTag]) -> list[DefTag]:
-    seen: set[tuple[str, int]] = set()
+    seen: set[tuple[str, int, str, str]] = set()
     out: list[DefTag] = []
     for d in defs:
-        key = (d.name, d.line)
+        key = (d.name, d.line, d.kind, d.signature)
         if key in seen:
             continue
         seen.add(key)
