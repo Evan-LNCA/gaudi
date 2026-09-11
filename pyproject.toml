@@ -9,13 +9,14 @@ description = "Ranked signature map for Cursor agents (tree-sitter + PageRank)"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-  "tree-sitter>=0.23",
+  "tree-sitter>=0.25",
   "tree-sitter-language-pack>=0.7",
   "networkx>=3.2",
+  "pathspec>=1.0",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8"]
+dev = ["pytest>=8", "ruff>=0.8", "mypy>=1.13"]
 
 [project.scripts]
 gaudi = "gaudi.cli:main"
@@ -27,9 +28,25 @@ gaudi = "gaudi.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-gaudi = ["assets/*"]
+gaudi = ["assets/*", "assets/queries/*.scm"]
 
 [tool.pytest.ini_options]
-pythonpath = ["."]
+pythonpath = [".", "src"]
 testpaths = ["tests"]
 addopts = "-q"
+
+[tool.ruff]
+target-version = "py311"
+src = ["src", "tests"]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.11"
+packages = ["gaudi"]
+ignore_missing_imports = true
+warn_unused_ignores = true
+show_error_codes = true

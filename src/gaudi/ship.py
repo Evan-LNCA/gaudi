@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 
 from gaudi.errors import ShipError
-from gaudi.paths import GAUDI_DIR, MAP_REL
 
 IGNORE_LINES = [".map", ".gaudi/"]
 GITIGNORE_LINE = ".map"

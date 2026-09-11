@@ -6,7 +6,6 @@ from importlib import resources
 from pathlib import Path
 
 from gaudi.errors import GaudiError
-from gaudi.gitutil import GitRepo
 from gaudi.mapgen import generate
 from gaudi.paths import (
     COPILOT_INSTRUCTIONS_REL,
@@ -17,12 +16,7 @@ from gaudi.paths import (
     RULE_REL,
     under,
 )
-from gaudi.ship import (
-    GITIGNORE_LINE,
-    dockerignore_lines,
-    ensure_ignore_lines,
-    update_all_ignore_files,
-)
+from gaudi.ship import update_all_ignore_files
 
 
 def detect_python_command() -> str:
@@ -89,9 +83,9 @@ def install(
     root: Path,
     python_cmd: str | None = None,
     target: str = "all",
+    *,
+    no_git: bool = False,
 ) -> None:
-    git = GitRepo(root)
-    git.require()
     python_cmd = python_cmd or detect_python_command()
 
     update_all_ignore_files(root)
@@ -128,4 +122,4 @@ def install(
         copilot_file.write_text(merged_text, encoding="utf-8")
         _copy_asset("gaudi-skill.md", under(root, COPILOT_SKILL_REL))
 
-    generate(root)
+    generate(root, quiet=True, no_git=no_git)

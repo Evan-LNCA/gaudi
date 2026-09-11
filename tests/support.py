@@ -4,12 +4,13 @@ import subprocess
 from pathlib import Path
 
 from gaudi.cli import main
+from gaudi.gitutil import git_executable
 from gaudi.paths import MAP_REL
 
 
 def git(repo: Path, *args: str) -> subprocess.CompletedProcess[bytes]:
     proc = subprocess.run(
-        ["git", "-C", str(repo), *args],
+        [git_executable(), "-C", str(repo), *args],
         capture_output=True,
         check=False,
     )
@@ -22,7 +23,7 @@ def git(repo: Path, *args: str) -> subprocess.CompletedProcess[bytes]:
 
 def init_repo(path: Path) -> Path:
     path.mkdir(parents=True, exist_ok=True)
-    subprocess.run(["git", "init"], cwd=path, check=True, capture_output=True)
+    subprocess.run([git_executable(), "init"], cwd=path, check=True, capture_output=True)
     git(path, "config", "user.email", "gaudi-test@example.com")
     git(path, "config", "user.name", "Gaudi Test")
     git(path, "config", "commit.gpgsign", "false")

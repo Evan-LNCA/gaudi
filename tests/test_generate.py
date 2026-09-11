@@ -1,14 +1,14 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
 
 from gaudi.cli import main
-from gaudi.errors import GaudiError
 from gaudi.gitutil import GitRepo
 from gaudi.mapgen import generate, HEADER_MARK, status_code
-from gaudi.paths import CONFIG_REL, MAP_REL
+from gaudi.paths import CACHE_FILE, CONFIG_REL, MAP_REL, token_count
 
 from tests.support import commit_all, git, init_repo, map_body, map_text, run_cli
 
@@ -91,19 +91,23 @@ def test_js_and_ts_defs(tmp_path: Path) -> None:
     assert "beta" in text
 
 
-def test_missing_git_nonzero(tmp_path: Path) -> None:
+def test_missing_git_succeeds(tmp_path: Path) -> None:
     bare = tmp_path / "notgit"
     bare.mkdir()
-    with pytest.raises(GaudiError, match="Not a git repository"):
-        generate(bare)
-    assert main(["--root", str(bare), "generate"]) == 2
+    (bare / "a.py").write_text("def foo():\n    return 1\n", encoding="utf-8")
+    result = generate(bare)
+    text = result.path.read_text(encoding="utf-8")
+    assert HEADER_MARK in text
+    assert "head: NOGIT" in text
+    assert "def foo" in text
+    assert main(["--root", str(bare), "generate"]) == 0
 
 
 def test_empty_tree_writes_map_no_crash(tmp_path: Path) -> None:
     repo = init_repo(tmp_path / "empty")
     git(repo, "commit", "--allow-empty", "-m", "empty")
     dest = generate(repo)
-    text = dest.read_text(encoding="utf-8")
+    text = dest.text
     assert HEADER_MARK in text
     assert "empty" in text.lower()
     assert status_code(repo) == 0
@@ -111,10 +115,10 @@ def test_empty_tree_writes_map_no_crash(tmp_path: Path) -> None:
 
 def test_generate_creates_dot_map_at_root(git_repo) -> None:
     dest = generate(git_repo)
-    assert dest == git_repo / ".map"
+    assert dest.path == git_repo / ".map"
     assert (git_repo / ".map").is_file()
     assert (git_repo / ".gaudi" / "config.json").is_file()
-    assert (git_repo / ".gaudi" / "cache" / "tags.json").is_file()
+    assert (git_repo / CACHE_FILE).is_file()
 
 
 def test_generate_automatically_updates_all_ignore_files(tmp_path: Path) -> None:
@@ -146,3 +150,105 @@ def test_generate_automatically_updates_all_ignore_files(tmp_path: Path) -> None
 
     ci = (repo / ".cursorignore").read_text(encoding="utf-8")
     assert ".map" not in ci
+
+
+def test_untracked_not_ignored_file_appears(git_repo) -> None:
+    (git_repo / "fresh_untracked.py").write_text(
+        "def untracked_symbol():\n    return 0\n",
+        encoding="utf-8",
+    )
+    generate(git_repo)
+    assert "untracked_symbol" in map_text(git_repo)
+
+
+def test_readme_edit_does_not_stale_map(git_repo) -> None:
+    generate(git_repo)
+    assert status_code(git_repo) == 0
+    (git_repo / "README.md").write_text("notes only\n", encoding="utf-8")
+    assert status_code(git_repo) == 0
+
+
+def test_status_does_not_write_cache(git_repo) -> None:
+    generate(git_repo)
+    cache = git_repo / CACHE_FILE
+    os.utime(cache, (1_700_000_000, 1_700_000_000))
+    assert status_code(git_repo) == 0
+    assert cache.stat().st_mtime == 1_700_000_000
+
+
+def test_cache_prunes_dead_hashes(git_repo) -> None:
+    from gaudi.cache import TagCache
+    from gaudi.extract import FileTags
+
+    generate(git_repo)
+    cache = TagCache(git_repo)
+    dead = "ab" * 32
+    cache.put(dead, FileTags(path="gone.py"))
+    cache.save()
+    assert dead in cache.hashes()
+    cache.close()
+    generate(git_repo)
+    cache2 = TagCache(git_repo, readonly=True)
+    try:
+        assert dead not in cache2.hashes()
+    finally:
+        cache2.close()
+
+
+def test_warns_on_star_map_ignore(git_repo, capsys) -> None:
+    gi = git_repo / ".gitignore"
+    gi.write_text(gi.read_text(encoding="utf-8") + "*.map\n", encoding="utf-8")
+    generate(git_repo)
+    err = capsys.readouterr().err
+    assert "*.map" in err
+    generate(git_repo, quiet=True)
+    err_quiet = capsys.readouterr().err
+    assert "*.map" not in err_quiet
+
+
+def test_generate_summary_and_quiet(git_repo, capsys) -> None:
+    assert run_cli(git_repo, "generate") == 0
+    out = capsys.readouterr().out
+    assert "wrote .map:" in out
+    assert "files" in out
+    assert "defs" in out
+    assert "tokens" in out
+    assert run_cli(git_repo, "--quiet", "generate") == 0
+    assert capsys.readouterr().out.strip() == ""
+
+
+def test_version_flag(capsys) -> None:
+    with pytest.raises(SystemExit) as exc:
+        main(["--version"])
+    assert exc.value.code == 0
+    assert "0.1.0" in capsys.readouterr().out
+
+
+def test_token_accounting_includes_elision(git_repo) -> None:
+    result = generate(git_repo, map_tokens=24)
+    text = result.text
+    assert "⋮" in text
+    counted = token_count(text)
+    assert counted == result.tokens
+    assert counted <= 24 * 3
+    assert "more defs" in text or "showing" in text
+
+
+def test_deep_nesting_does_not_recursion_error(tmp_path: Path) -> None:
+    from gaudi.extract import TreeSitterParsers, extract_file
+
+    repo = init_repo(tmp_path / "deep")
+    depth = 1200
+    inner = "return 1;"
+    for i in range(depth, 0, -1):
+        inner = f"function d{i}() {{\n{inner}\n}}"
+    source = f"{inner}\n"
+    (repo / "deep.js").write_text(source, encoding="utf-8")
+    commit_all(repo, "deep")
+    parsers = TreeSitterParsers()
+    tags = extract_file("deep.js", source.encode("utf-8"), "javascript", parsers)
+    names = {d.name for d in tags.defs}
+    assert "d1" in names
+    assert "d1200" in names
+    generate(repo)
+    assert "d1" in map_text(repo)

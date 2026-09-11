@@ -7,10 +7,12 @@ import sys
 
 
 def main() -> int:
-    try:
-        sys.stdout.reconfigure(encoding="utf-8")
-    except (AttributeError, OSError):
-        pass
+    reconfigure = getattr(sys.stdout, "reconfigure", None)
+    if callable(reconfigure):
+        try:
+            reconfigure(encoding="utf-8")
+        except OSError:
+            pass
     try:
         from gaudi.hooks import handle_stop, read_stdin_json
     except ImportError:

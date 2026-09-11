@@ -59,7 +59,9 @@ ENV/
 .vscode/
 .idea/
 
-# Gaudi local artifacts
-.cursor/gaudi/
+# Gaudi local artifacts (repo-root .map, not *.map)
 .map
 .gaudi/
+
+# Local embeddable CPython used for verification
+.tools/

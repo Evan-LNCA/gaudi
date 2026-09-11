@@ -1,38 +1,42 @@
 ---
 name: gaudi
-description: Generate and maintain the Gaudi ranked codebase map for AI coding agents.
+description: Query and maintain the Gaudi ranked codebase map for AI coding agents.
 ---
 
-# Generate a Gaudi map
+# Use Gaudi for orientation
+
+Do not always read `.map`. Prefer a small index plus on-demand focus.
 
 When the user asks to generate, refresh, or update a Gaudi map, work in the
-target repository (the workspace being analyzed):
+target repository:
 
 1. Verify that the Gaudi CLI is available:
-   ```powershell
+   ```bash
    python -c "import gaudi"
    ```
    If it is unavailable, install it using the repository's normal Python
    environment, then retry.
 2. From the repository root, run:
-   ```powershell
+   ```bash
    gaudi generate
    ```
    Use `python -m gaudi generate` if the console command is unavailable.
-3. Confirm the generated `.map` exists. It is a cues-only orientation aid,
-   not source-of-truth code and must never be hand-edited.
+3. Confirm `.map` exists. It is a cues-only orientation aid, not source-of-truth
+   code, and must never be hand-edited.
 
-Before using an existing map for broad orientation, check it with:
+For day-to-day orientation:
 
-```powershell
+```bash
+gaudi index
+gaudi focus <path-or-symbol>
+gaudi where <symbol>
 gaudi status
 ```
 
-If the map is missing or stale, run `gaudi generate` before relying on it.
-The normal Cursor integration also checks freshness at session start and
-regenerates at session stop. Cloud Agent does not run that Cursor hook, so it
-must perform this check itself.
+`gaudi focus` prints a personalized neighborhood to stdout and never writes `.map`.
+If the map or cache is missing or stale, run `gaudi generate` before relying on
+queries. Cloud Agent does not run Cursor sessionStart, so it must check itself.
 
-Use `.map` to identify likely architectural hubs and signatures, then read the
-actual source files before making edits. Do not infer behavior, ownership, or
-implementation details from the map alone.
+Read the actual source files before making edits. Do not infer behavior,
+ownership, or implementation details from Gaudi output alone. Trust truncation
+markers (`⋮ +N more defs`) and the freshness line.
