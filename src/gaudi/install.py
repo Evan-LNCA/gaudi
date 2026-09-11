@@ -90,6 +90,7 @@ def install(
 
     install_cursor = target in ("cursor", "all", "both")
     install_copilot = target in ("copilot", "all", "both")
+    write_generated_outputs = target in ("cursor", "all", "both")
 
     if install_cursor:
         rule_text = _asset_text("gaudi-map.mdc")
@@ -120,6 +121,6 @@ def install(
         copilot_file.write_text(merged_text, encoding="utf-8")
         _copy_asset("gaudi-skill.md", under(root, COPILOT_SKILL_REL))
 
-    if install_cursor:
+    if write_generated_outputs:
         update_all_ignore_files(root)
         generate(root, quiet=True, no_git=no_git)

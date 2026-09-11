@@ -82,7 +82,7 @@ gaudi install
 | `gaudi focus <path\|symbol>... [--tokens 512] [--format json]` | Personalized PageRank neighborhood to stdout. Never writes `.map`. | nothing |
 | `gaudi where <symbol> [--format json]` | Print `path:line` plus signature. | nothing |
 | `gaudi check-ship` | Fail if the map could be copied into Docker/build/dist output. | nothing |
-| `gaudi install [--target all\|cursor\|copilot]` | Install agent-facing instructions/hooks, update ignore files, and generate the map (quiet). | agent files + generate outputs |
+| `gaudi install [--target all\|both\|cursor\|copilot]` | Install agent-facing files; `cursor`, `both`, and `all` also update ignore files and generate the map (quiet). | agent files; generated outputs except for `copilot` |
 
 Global flags (before the subcommand): `--version`, `--quiet` / `-q`, `--no-git`, `--root <dir>`.
 
@@ -128,7 +128,7 @@ The default map budget is 2048 tokens. Change it in
 gitignore-style globs. `max_file_bytes` defaults to 1 MiB.
 
 Stdout-only answers: `index`, `focus`, `where`, `status`, `check-ship`.
-`index` / `focus` / `where` still update `.gaudi/cache/tags.sqlite` as they parse.
+`index` / `focus` / `where` do not write `.gaudi/cache/tags.sqlite` or `.map`.
 
 ## Git-optional behavior
 
