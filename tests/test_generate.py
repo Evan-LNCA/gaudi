@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 
@@ -232,6 +233,58 @@ def test_token_accounting_includes_elision(git_repo) -> None:
     assert counted == result.tokens
     assert counted <= 24 * 3
     assert "more defs" in text or "showing" in text
+
+
+def test_no_git_override_records_nogit_head(git_repo) -> None:
+    result = generate(git_repo, no_git=True)
+    assert "head: NOGIT" in result.text
+    assert "dirty: false" in result.text
+    assert "def foo" in result.text
+    assert run_cli(git_repo, "--no-git", "generate") == 0
+
+
+def test_minified_and_generated_files_skipped(git_repo) -> None:
+    (git_repo / "app.min.js").write_text("function hiddenMin(){return 1}\n", encoding="utf-8")
+    (git_repo / "gen.generated.ts").write_text(
+        "export function hiddenGen() { return 1 }\n",
+        encoding="utf-8",
+    )
+    (git_repo / "blob.js").write_text("function hiddenBlob(){" + ("x" * 5000) + "}", encoding="utf-8")
+    generate(git_repo)
+    text = map_text(git_repo)
+    assert "hiddenMin" not in text
+    assert "hiddenGen" not in text
+    assert "hiddenBlob" not in text
+    assert "foo" in text
+
+
+def test_config_exclude_drops_file(git_repo) -> None:
+    (git_repo / "skip_me.py").write_text("def excluded_sym():\n    return 0\n", encoding="utf-8")
+    generate(git_repo)
+    assert "excluded_sym" in map_text(git_repo)
+    cfg = git_repo / CONFIG_REL
+    data = json.loads(cfg.read_text(encoding="utf-8"))
+    data["exclude"] = ["skip_me.py"]
+    cfg.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    generate(git_repo)
+    text = map_text(git_repo)
+    assert "excluded_sym" not in text
+    assert "foo" in text
+
+
+def test_size_cap_skips_large_file(git_repo) -> None:
+    (git_repo / "huge.py").write_text(
+        "def huge_sym():\n    return 1\n" + ("# pad\n" * 400),
+        encoding="utf-8",
+    )
+    generate(git_repo)
+    assert "huge_sym" in map_text(git_repo)
+    cfg = git_repo / CONFIG_REL
+    data = json.loads(cfg.read_text(encoding="utf-8"))
+    data["max_file_bytes"] = 80
+    cfg.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    generate(git_repo)
+    assert "huge_sym" not in map_text(git_repo)
 
 
 def test_deep_nesting_does_not_recursion_error(tmp_path: Path) -> None:

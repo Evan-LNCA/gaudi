@@ -215,6 +215,17 @@ root, after `python -m pip install -e .`:
 python benchmarks/bench.py
 ```
 
+Representative numbers from that fixture (local Windows run, 2026-09-11):
+
+| Metric | Value |
+|---|---|
+| Files / defs / tokens | 24 / 192 / 1086 |
+| Cold generate | 0.60s |
+| Warm generate (median of 3) | 0.019s |
+| Cache speedup | ~32x |
+
+Times vary by machine. Re-run the script for current numbers.
+
 ## Cursor setup notes
 
 Gaudi cannot flip IDE settings. After the first `gaudi install` in a real project:

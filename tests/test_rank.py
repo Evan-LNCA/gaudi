@@ -89,6 +89,31 @@ def test_def_rank_follows_inbound_share() -> None:
     assert scores[hot.key] > scores[cold.key]
 
 
+def test_numpy_pagerank_matches_python(monkeypatch) -> None:
+    import networkx as nx
+    import pytest
+
+    from gaudi import rank as rank_mod
+
+    graph = nx.DiGraph()
+    graph.add_edge("a", "b", weight=2.0)
+    graph.add_edge("b", "c", weight=1.0)
+    graph.add_node("d")
+    perso = {"c": 1.0}
+
+    np_mod = rank_mod._try_numpy()
+    monkeypatch.setattr(rank_mod, "_try_numpy", lambda: None)
+    py_scores = rank_mod._pagerank(graph, personalization=perso)
+    assert py_scores["c"] > py_scores["d"]
+    if np_mod is None:
+        pytest.skip("numpy not installed")
+    monkeypatch.setattr(rank_mod, "_try_numpy", lambda: np_mod)
+    np_scores = rank_mod._pagerank(graph, personalization=perso)
+    assert set(py_scores) == set(np_scores)
+    for key in py_scores:
+        assert abs(py_scores[key] - np_scores[key]) < 1e-8
+
+
 def test_common_ident_is_discounted() -> None:
     files = [
         _ft("a.py", ["get"], ["rare"]),
