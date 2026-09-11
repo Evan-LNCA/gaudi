@@ -225,7 +225,9 @@ def _direct_seed_paths(tags: list[FileTags], seeds: list[str]) -> set[str]:
     matched: set[str] = set()
     for seed in seeds:
         norm = seed.replace("\\", "/").lstrip("./")
-        matched_paths = {p for p in paths if p == norm or p.endswith("/" + norm) or p.startswith(norm)}
+        matched_paths = {
+            p for p in paths if p == norm or p.endswith("/" + norm) or p.startswith(norm + "/")
+        }
         if matched_paths:
             matched.update(matched_paths)
             continue

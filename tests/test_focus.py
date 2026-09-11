@@ -7,7 +7,7 @@ from gaudi.mapgen import generate
 from gaudi.paths import CACHE_FILE, token_count
 from gaudi.query import run_focus, run_index, run_where
 
-from tests.support import init_repo, map_text, run_cli
+from tests.support import commit_all, init_repo, map_text, run_cli
 
 
 def test_focus_determinism_and_smaller_than_map(git_repo) -> None:
@@ -73,3 +73,17 @@ def test_focus_prioritizes_direct_seed_path(git_repo) -> None:
     out = run_focus(git_repo, ["b.py"], tokens=64)
     body = out.text.split("\n\n", 1)[1]
     assert body.startswith("b.py:\n")
+
+
+def test_focus_path_seed_does_not_match_sibling_prefixes(tmp_path: Path) -> None:
+    repo = init_repo(tmp_path / "focus-prefix")
+    (repo / ".gitignore").write_text(".map\n.gaudi/\n", encoding="utf-8")
+    (repo / ".dockerignore").write_text(".map\n.gaudi/\n", encoding="utf-8")
+    (repo / "src").mkdir()
+    (repo / "src" / "app.py").write_text("def wanted():\n    return 1\n", encoding="utf-8")
+    (repo / "src" / "application.py").write_text("def sibling():\n    return 2\n", encoding="utf-8")
+    commit_all(repo, "init")
+    out = run_focus(repo, ["src/app"], tokens=64)
+    body = out.text.split("\n\n", 1)[1]
+    assert body.startswith("src/app.py:\n")
+    assert "src/application.py:" not in body
