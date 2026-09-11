@@ -46,7 +46,7 @@ def run_focus(
     except LookupError as exc:
         raise GaudiError(f"No files or symbols matched: {exc}") from exc
     scores = pagerank_defs(tags, personalization=personalization)
-    seed_paths = {p for p in personalization if personalization[p] > 0}
+    seed_paths = _direct_seed_paths(tags, seeds)
     files_meta = _ranked_files(tags, scores)
     header = (
         f"{freshness_line(head, tree, fresh=fresh)}\n"
@@ -213,6 +213,28 @@ def _load(
     finally:
         cache.close()
     return tags, tree, lister.head_sha(), lister.is_dirty()
+
+
+def _direct_seed_paths(tags: list[FileTags], seeds: list[str]) -> set[str]:
+    paths = {t.path for t in tags}
+    defs_by_name: dict[str, set[str]] = {}
+    for item in tags:
+        for d in item.defs:
+            defs_by_name.setdefault(d.name, set()).add(d.path)
+
+    matched: set[str] = set()
+    for seed in seeds:
+        norm = seed.replace("\\", "/").lstrip("./")
+        matched_paths = {p for p in paths if p == norm or p.endswith("/" + norm) or p.startswith(norm)}
+        if matched_paths:
+            matched.update(matched_paths)
+            continue
+        hits = defs_by_name.get(seed, set())
+        if hits:
+            matched.update(hits)
+            continue
+        raise LookupError(seed)
+    return matched
 
 
 def _files_payload(

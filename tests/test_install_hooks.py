@@ -71,6 +71,11 @@ def test_check_ship_fails_without_dockerignore(tmp_path: Path, git_repo) -> None
         check_ship(git_repo)
 
 
+def test_check_ship_allows_non_root_map_negation(git_repo) -> None:
+    (git_repo / ".dockerignore").write_text(".map\n.gaudi/\n!src/**/*.map\n", encoding="utf-8")
+    check_ship(git_repo)
+
+
 def test_session_start_two_lines_no_bodies(git_repo) -> None:
     generate(git_repo)
     out = handle_session_start({"workspace_roots": [str(git_repo)]})

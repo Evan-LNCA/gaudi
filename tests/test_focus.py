@@ -67,3 +67,9 @@ def test_query_commands_do_not_create_cache(tmp_path: Path) -> None:
     out = run_index(repo, tokens=128)
     assert "hubs:" in out.text
     assert not (repo / CACHE_FILE).exists()
+
+
+def test_focus_prioritizes_direct_seed_path(git_repo) -> None:
+    out = run_focus(git_repo, ["b.py"], tokens=64)
+    body = out.text.split("\n\n", 1)[1]
+    assert body.startswith("b.py:\n")

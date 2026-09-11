@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from pathspec import PathSpec
+
 from gaudi.errors import ShipError
 
 IGNORE_LINES = [".map", ".gaudi/"]
@@ -63,16 +65,9 @@ def _dockerignore_excludes_map(text: str) -> bool:
         line = raw.strip()
         if not line or line.startswith("#"):
             continue
-        patterns.append(line.rstrip("/"))
-    has_map = any(pat in {".map", "**/.map", ".*"} for pat in patterns)
-    has_gaudi = any(pat in {".gaudi", "**/.gaudi", ".*"} for pat in patterns)
-    for pat in patterns:
-        if pat.startswith("!"):
-            if ".map" in pat or pat == "!map":
-                has_map = False
-            if ".gaudi" in pat or pat == "!gaudi":
-                has_gaudi = False
-    return has_map and has_gaudi
+        patterns.append(line)
+    spec = PathSpec.from_lines("gitwildmatch", patterns)
+    return spec.match_file(".map") and spec.match_file(".gaudi/keep")
 
 
 def check_ship(root: Path) -> None:
