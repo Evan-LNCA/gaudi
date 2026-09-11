@@ -78,9 +78,9 @@ gaudi install
 |---|---|---|
 | `gaudi generate [--map-tokens N]` | Parse sources, update ignore files, cache tags in SQLite, write `.map`. | `.map`, `.gaudi/`, ignore files |
 | `gaudi status` | Exit 0 only when `.map` matches HEAD and the source-tree fingerprint. Silent. Does not write the cache. | nothing |
-| `gaudi index [--tokens 250] [--format json]` | Top hubs plus directory shape with def counts. | tag cache only |
-| `gaudi focus <path\|symbol>... [--tokens 512] [--format json]` | Personalized PageRank neighborhood to stdout. Never writes `.map`. | tag cache only |
-| `gaudi where <symbol> [--format json]` | Print `path:line` plus signature. | tag cache only |
+| `gaudi index [--tokens 250] [--format json]` | Top hubs plus directory shape with def counts. | nothing |
+| `gaudi focus <path\|symbol>... [--tokens 512] [--format json]` | Personalized PageRank neighborhood to stdout. Never writes `.map`. | nothing |
+| `gaudi where <symbol> [--format json]` | Print `path:line` plus signature. | nothing |
 | `gaudi check-ship` | Fail if the map could be copied into Docker/build/dist output. | nothing |
 | `gaudi install [--target all\|cursor\|copilot]` | Install agent-facing instructions/hooks, update ignore files, and generate the map (quiet). | agent files + generate outputs |
 
@@ -167,7 +167,7 @@ metadata, and a source-tree fingerprint of supported-language files.
 `gaudi status` ignores dirty: editing a non-source file does not force a
 regenerate. `status` opens the tag cache read-only and does not write it.
 
-Query commands parse the live tree and update the tag cache. If `.map` is
+Query commands parse the live tree without writing cache or map files. If `.map` is
 absent, their freshness line is `true` (the answer is live). If `.map` is
 present, `fresh: true` only when that map still matches HEAD + tree.
 

@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 from gaudi.mapgen import generate
-from gaudi.paths import token_count
+from gaudi.paths import CACHE_FILE, token_count
 from gaudi.query import run_focus, run_index, run_where
 
-from tests.support import map_text, run_cli
+from tests.support import init_repo, map_text, run_cli
 
 
 def test_focus_determinism_and_smaller_than_map(git_repo) -> None:
@@ -51,3 +52,18 @@ def test_focus_reports_stale_after_source_edit(git_repo) -> None:
     assert "fresh: false" in out.text
     assert out.payload["fresh"] is False
     assert "extra_focus" in out.text
+
+
+def test_query_commands_do_not_create_cache(tmp_path: Path) -> None:
+    repo = init_repo(tmp_path / "queries-no-cache")
+    (repo / "a.py").write_text("def foo():\n    return 1\n", encoding="utf-8")
+    assert not (repo / CACHE_FILE).exists()
+    out = run_focus(repo, ["foo"], tokens=64)
+    assert "focus: foo" in out.text
+    assert not (repo / CACHE_FILE).exists()
+    out = run_where(repo, "foo")
+    assert "def foo" in out.text
+    assert not (repo / CACHE_FILE).exists()
+    out = run_index(repo, tokens=128)
+    assert "hubs:" in out.text
+    assert not (repo / CACHE_FILE).exists()

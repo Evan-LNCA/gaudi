@@ -4,6 +4,7 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+from gaudi.cache import TagCache
 from gaudi.errors import GaudiError
 from gaudi.extract import DefTag, FileTags, ParserPort
 from gaudi.mapgen import (
@@ -198,9 +199,19 @@ def _load(
 
     config = load_config(root)
     lister = detect_lister(root, no_git=no_git, extra_excludes=config.exclude)
-    tags, tree = collect_tags(
-        root, lister, parsers=parsers, save=True, config=config, no_git=no_git
-    )
+    cache = TagCache(root, readonly=True)
+    try:
+        tags, tree = collect_tags(
+            root,
+            lister,
+            parsers=parsers,
+            cache=cache,
+            save=False,
+            config=config,
+            no_git=no_git,
+        )
+    finally:
+        cache.close()
     return tags, tree, lister.head_sha(), lister.is_dirty()
 
 

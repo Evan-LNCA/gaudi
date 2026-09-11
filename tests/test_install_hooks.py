@@ -118,7 +118,7 @@ def test_merge_hooks_detects_py_dash_three() -> None:
 
 
 def test_install_copilot_instructions_and_targets(git_repo) -> None:
-    from gaudi.paths import COPILOT_INSTRUCTIONS_REL, COPILOT_SKILL_REL, RULE_REL
+    from gaudi.paths import CACHE_REL, COPILOT_INSTRUCTIONS_REL, COPILOT_SKILL_REL, MAP_REL, RULE_REL
 
     # Target: copilot only
     install(git_repo, python_cmd="python", target="copilot")
@@ -130,6 +130,8 @@ def test_install_copilot_instructions_and_targets(git_repo) -> None:
     assert "gaudi status" in skill
     assert "gaudi generate" in skill
     assert not (git_repo / RULE_REL).exists()
+    assert not (git_repo / MAP_REL).exists()
+    assert not (git_repo / CACHE_REL).exists()
 
     # Target: all (idempotent, adds cursor rule without duplicating copilot section)
     install(git_repo, python_cmd="python", target="all")

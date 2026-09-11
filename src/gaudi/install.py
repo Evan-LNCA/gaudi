@@ -88,8 +88,6 @@ def install(
 ) -> None:
     python_cmd = python_cmd or detect_python_command()
 
-    update_all_ignore_files(root)
-
     install_cursor = target in ("cursor", "all", "both")
     install_copilot = target in ("copilot", "all", "both")
 
@@ -122,4 +120,6 @@ def install(
         copilot_file.write_text(merged_text, encoding="utf-8")
         _copy_asset("gaudi-skill.md", under(root, COPILOT_SKILL_REL))
 
-    generate(root, quiet=True, no_git=no_git)
+    if install_cursor:
+        update_all_ignore_files(root)
+        generate(root, quiet=True, no_git=no_git)
