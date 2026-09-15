@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from gaudi.errors import GaudiError
@@ -15,7 +15,7 @@ from gaudi.mapgen import (
     render_body,
     warn_if_map_hidden,
 )
-from gaudi.paths import DEFAULT_FOCUS_TOKENS, DEFAULT_INDEX_TOKENS, token_count
+from gaudi.paths import DEFAULT_FOCUS_TOKENS, DEFAULT_INDEX_TOKENS, MAP_REL, token_count, tokens_from_size, under
 from gaudi.rank import pagerank_defs, personalization_from_seeds, pagerank_files
 
 
@@ -23,6 +23,7 @@ from gaudi.rank import pagerank_defs, personalization_from_seeds, pagerank_files
 class QueryResult:
     text: str
     payload: dict
+    source_bytes: dict[str, int] = field(default_factory=dict)
 
 
 def run_focus(
@@ -38,7 +39,7 @@ def run_focus(
     if not quiet:
         warn_if_map_hidden(root)
     budget = tokens if tokens is not None else DEFAULT_FOCUS_TOKENS
-    tags, tree, head, dirty = _load(root, parsers=parsers, no_git=no_git)
+    tags, tree, head, dirty, source_bytes = _load(root, parsers=parsers, no_git=no_git)
     fresh = query_fresh(root, head, tree)
     try:
         personalization = personalization_from_seeds(tags, seeds)
@@ -53,13 +54,16 @@ def run_focus(
         f"focus: {', '.join(seeds)}\n"
         "\n"
     )
-    body, shown, total = render_body(
+    body, shown, total, shown_paths = render_body(
         files_meta, budget, header_len=len(header), seed_paths=seed_paths
     )
     if not body:
         body = "(empty — no defs in focus neighborhood)\n"
     footer = f"showing {shown} of {total} files\n"
     text = header + body + footer
+    emitted = token_count(text)
+    baseline = sum(tokens_from_size(source_bytes.get(path, 0)) for path in shown_paths)
+    saved = max(baseline - emitted, 0)
     payload = {
         "fresh": fresh,
         "head": head,
@@ -68,10 +72,19 @@ def run_focus(
         "focus": seeds,
         "showing": shown,
         "total_files": total,
-        "tokens": token_count(text),
+        "tokens": emitted,
+        "baseline_tokens": baseline,
+        "saved_tokens": saved,
         "files": _files_payload(files_meta, shown),
     }
-    return QueryResult(text=_format(text, payload, fmt), payload=payload)
+    _record_query(
+        root,
+        "focus",
+        emitted,
+        baseline,
+        [(path, tokens_from_size(source_bytes.get(path, 0))) for path in shown_paths],
+    )
+    return QueryResult(text=_format(text, payload, fmt), payload=payload, source_bytes=source_bytes)
 
 
 def run_where(
@@ -82,7 +95,7 @@ def run_where(
     parsers: ParserPort | None = None,
     no_git: bool = False,
 ) -> QueryResult:
-    tags, tree, head, dirty = _load(root, parsers=parsers, no_git=no_git)
+    tags, tree, head, dirty, source_bytes = _load(root, parsers=parsers, no_git=no_git)
     matches: list[DefTag] = []
     for t in tags:
         for d in t.defs:
@@ -96,12 +109,19 @@ def run_where(
     for d in matches:
         lines.append(f"{d.path}:{d.line}  {d.signature}")
     text = "\n".join(lines) + "\n"
+    match_paths = list(dict.fromkeys(d.path for d in matches))
+    emitted = token_count(text)
+    baseline = sum(tokens_from_size(source_bytes.get(path, 0)) for path in match_paths)
+    saved = max(baseline - emitted, 0)
     payload = {
         "fresh": fresh,
         "head": head,
         "tree": tree,
         "dirty": dirty,
         "symbol": symbol,
+        "tokens": emitted,
+        "baseline_tokens": baseline,
+        "saved_tokens": saved,
         "matches": [
             {
                 "path": d.path,
@@ -112,7 +132,14 @@ def run_where(
             for d in matches
         ],
     }
-    return QueryResult(text=_format(text, payload, fmt), payload=payload)
+    _record_query(
+        root,
+        "where",
+        emitted,
+        baseline,
+        [(path, tokens_from_size(source_bytes.get(path, 0))) for path in match_paths],
+    )
+    return QueryResult(text=_format(text, payload, fmt), payload=payload, source_bytes=source_bytes)
 
 
 def run_index(
@@ -127,7 +154,7 @@ def run_index(
     if not quiet:
         warn_if_map_hidden(root)
     budget = tokens if tokens is not None else DEFAULT_INDEX_TOKENS
-    tags, tree, head, dirty = _load(root, parsers=parsers, no_git=no_git)
+    tags, tree, head, dirty, source_bytes = _load(root, parsers=parsers, no_git=no_git)
     fresh = query_fresh(root, head, tree)
     file_rank = pagerank_files(tags)
     hubs = sorted(
@@ -174,6 +201,17 @@ def run_index(
         parts.append(f"⋮ +{omitted_hubs} more hubs, {omitted_dirs} more dirs")
     parts.append(f"showing {shown_hubs} of {len(hubs)} files")
     text = "\n".join(parts) + "\n"
+    emitted = token_count(text)
+    map_path = under(root, MAP_REL)
+    if map_path.is_file():
+        try:
+            baseline = token_count(map_path.read_text(encoding="utf-8"))
+        except OSError as exc:
+            raise GaudiError(f"Cannot read map for index baseline: {map_path}") from exc
+    else:
+        baseline = sum(tokens_from_size(size) for size in source_bytes.values())
+    saved = max(baseline - emitted, 0)
+    shown_paths = [p for p, _n, _s in hubs[:shown_hubs]]
     payload = {
         "fresh": fresh,
         "head": head,
@@ -183,9 +221,18 @@ def run_index(
         "dirs": [{"dir": d, "defs": n} for d, n in dir_rows[:shown_dirs]],
         "showing": shown_hubs,
         "total_files": len(hubs),
-        "tokens": token_count(text),
+        "tokens": emitted,
+        "baseline_tokens": baseline,
+        "saved_tokens": saved,
     }
-    return QueryResult(text=_format(text, payload, fmt), payload=payload)
+    _record_query(
+        root,
+        "index",
+        emitted,
+        baseline,
+        [(path, tokens_from_size(source_bytes.get(path, 0))) for path in shown_paths],
+    )
+    return QueryResult(text=_format(text, payload, fmt), payload=payload, source_bytes=source_bytes)
 
 
 def _load(
@@ -193,15 +240,35 @@ def _load(
     *,
     parsers: ParserPort | None,
     no_git: bool,
-) -> tuple[list[FileTags], str, str, bool]:
+) -> tuple[list[FileTags], str, str, bool, dict[str, int]]:
     from gaudi.discover import detect_lister
 
     config = load_config(root)
     lister = detect_lister(root, no_git=no_git, extra_excludes=config.exclude)
-    tags, tree = collect_tags(
+    tags, tree, source_bytes = collect_tags(
         root, lister, parsers=parsers, save=True, config=config, no_git=no_git
     )
-    return tags, tree, lister.head_sha(), lister.is_dirty()
+    return tags, tree, lister.head_sha(), lister.is_dirty(), source_bytes
+
+
+def _record_query(
+    root: Path,
+    cmd: str,
+    emitted: int,
+    baseline: int,
+    oriented: list[tuple[str, int]],
+) -> None:
+    from gaudi.ledger import try_record_query
+
+    config = load_config(root)
+    try_record_query(
+        root,
+        cmd,
+        emitted,
+        baseline,
+        oriented,
+        enabled=config.ledger.enabled,
+    )
 
 
 def _files_payload(

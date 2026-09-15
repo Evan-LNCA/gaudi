@@ -45,7 +45,7 @@ def test_collect_tags_skips_venv(git_repo) -> None:
     (venv / "noise.py").write_text("def should_not_appear():\n    return 0\n", encoding="utf-8")
     git(git_repo, "add", "-f", ".venv/noise.py")
     commit_all(git_repo, "track venv by mistake")
-    tags, _ = collect_tags(git_repo, GitRepo(git_repo))
+    tags, _tree, _sizes = collect_tags(git_repo, GitRepo(git_repo))
     names = {d.name for t in tags for d in t.defs}
     assert "should_not_appear" not in names
 

@@ -9,8 +9,17 @@ from gaudi import __version__
 from gaudi.errors import GaudiError
 from gaudi.hooks import handle_session_start, handle_stop, read_stdin_json
 from gaudi.install import install
+from gaudi.ledger import instruction_tokens, load_ledger_config, load_snapshots, session_start_tokens
 from gaudi.mapgen import generate, status_code
 from gaudi.query import run_focus, run_index, run_where
+from gaudi.scorecard import (
+    ab_json,
+    compute_ab,
+    compute_scorecard,
+    render_ab,
+    render_scorecard,
+    scorecard_json,
+)
 from gaudi.ship import ShipError, check_ship
 
 
@@ -23,6 +32,36 @@ def _configure_stdio() -> None:
             reconfigure(encoding="utf-8")
         except OSError:
             continue
+
+
+def _run_stats(root: Path, *, fmt: str, ab: bool) -> int:
+    try:
+        data = load_snapshots(root)
+        config = load_ledger_config(root)
+    except RuntimeError as exc:
+        raise GaudiError(str(exc)) from exc
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        raise GaudiError(f"Cannot read gaudi ledger config under {root}: {exc}") from exc
+    if ab:
+        ab_report = compute_ab(data, min_sessions=config.min_sessions)
+        if fmt == "json":
+            sys.stdout.write(json.dumps(ab_json(ab_report), indent=2, ensure_ascii=False) + "\n")
+        else:
+            sys.stdout.write(render_ab(ab_report))
+        return 0
+    harnesses = {session.harness for session in data.sessions}
+    instruction = {name: instruction_tokens(root, name) for name in harnesses}
+    card = compute_scorecard(
+        data,
+        cache_read_multiplier=config.cache_read_multiplier,
+        instruction_tokens_by_harness=instruction,
+        session_start_tokens=session_start_tokens(),
+    )
+    if fmt == "json":
+        sys.stdout.write(json.dumps(scorecard_json(card), indent=2, ensure_ascii=False) + "\n")
+    else:
+        sys.stdout.write(render_scorecard(card))
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -41,9 +80,20 @@ def main(argv: list[str] | None = None) -> int:
     inst = sub.add_parser("install", help="Merge hooks/ignores, write rule/instructions, generate map")
     inst.add_argument(
         "--target",
-        choices=["all", "cursor", "copilot"],
+        choices=["all", "cursor", "copilot", "claude", "agents"],
         default="all",
         help="Target environment (default: all)",
+    )
+    inst.add_argument(
+        "--yes",
+        "-y",
+        action="store_true",
+        help="Append or replace existing instruction files without prompting",
+    )
+    inst.add_argument(
+        "--with-ledger",
+        action="store_true",
+        help="Opt in to per-read/session ledger hooks for the selected --target",
     )
     sub.add_parser("check-ship", help="Fail if the map would ship in Docker or dist/build")
     sub.add_parser("hook-session-start", help="Cursor sessionStart: stdin JSON → stdout JSON")
@@ -61,6 +111,14 @@ def main(argv: list[str] | None = None) -> int:
     index = sub.add_parser("index", help="Top hubs plus directory shape with def counts")
     index.add_argument("--tokens", type=int, default=None)
     index.add_argument("--format", choices=["text", "json"], default="text")
+
+    stats = sub.add_parser("stats", help="Print local token scorecard (chars/4 estimate)")
+    stats.add_argument("--format", choices=["text", "json"], default="text")
+    stats.add_argument(
+        "--ab",
+        action="store_true",
+        help="Compare on/off arms using per-session measured medians",
+    )
 
     args = parser.parse_args(argv)
     if not args.cmd:
@@ -81,7 +139,13 @@ def main(argv: list[str] | None = None) -> int:
         if args.cmd == "status":
             return status_code(root, no_git=no_git)
         if args.cmd == "install":
-            install(root, target=args.target, no_git=no_git)
+            install(
+                root,
+                target=args.target,
+                no_git=no_git,
+                yes=args.yes,
+                with_ledger=args.with_ledger,
+            )
             return 0
         if args.cmd == "check-ship":
             check_ship(root)
@@ -119,6 +183,8 @@ def main(argv: list[str] | None = None) -> int:
             )
             sys.stdout.write(out.text)
             return 0
+        if args.cmd == "stats":
+            return _run_stats(root, fmt=args.format, ab=args.ab)
     except ShipError as exc:
         print(str(exc), file=sys.stderr)
         return 1
