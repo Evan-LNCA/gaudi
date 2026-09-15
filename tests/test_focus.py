@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
+import os
 
 from gaudi.mapgen import generate
-from gaudi.paths import CACHE_FILE, token_count
+from gaudi.paths import MAP_REL, token_count
 from gaudi.query import run_focus, run_index, run_where
 
 from tests.support import commit_all, init_repo, map_text, run_cli
@@ -40,6 +40,16 @@ def test_focus_json_and_where_index(git_repo) -> None:
     assert run_cli(git_repo, "where", "foo") == 0
     assert run_cli(git_repo, "index", "--format", "json") == 0
     assert run_cli(git_repo, "focus", "foo", "--tokens", "64") == 0
+
+
+def test_focus_does_not_write_map(git_repo) -> None:
+    generate(git_repo)
+    path = git_repo / MAP_REL
+    before = path.read_text(encoding="utf-8")
+    os.utime(path, (1_700_000_000, 1_700_000_000))
+    run_focus(git_repo, ["foo"], tokens=64)
+    assert path.read_text(encoding="utf-8") == before
+    assert path.stat().st_mtime == 1_700_000_000
 
 
 def test_focus_reports_stale_after_source_edit(git_repo) -> None:

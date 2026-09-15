@@ -6,7 +6,7 @@ import re
 import sys
 import time
 from concurrent.futures import ProcessPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from pathspec import PathSpec
@@ -31,8 +31,10 @@ from gaudi.paths import (
     POOL_MIN_BYTES,
     POOL_MIN_FILES,
     GaudiConfig,
+    parse_ledger_config,
     should_skip,
     token_count,
+    tokens_from_size,
     under,
 )
 from gaudi.rank import pagerank_defs
@@ -52,6 +54,9 @@ class GenerateResult:
     tokens: int
     elapsed: float
     text: str
+    source_bytes: dict[str, int] = field(default_factory=dict)
+    baseline_tokens: int = 0
+    saved_tokens: int = 0
 
 
 def load_config(root: Path, map_tokens: int | None = None) -> GaudiConfig:
@@ -68,6 +73,8 @@ def load_config(root: Path, map_tokens: int | None = None) -> GaudiConfig:
             cfg.exclude = [str(x) for x in exclude]
         elif exclude:
             raise ValueError(f"{cfg_path} exclude must be a list")
+        if "ledger" in data:
+            cfg.ledger = parse_ledger_config(data.get("ledger"), cfg_path)
     if map_tokens is not None:
         cfg.map_tokens = map_tokens
     return cfg
@@ -108,7 +115,7 @@ def collect_tags(
     save: bool = True,
     config: GaudiConfig | None = None,
     no_git: bool = False,
-) -> tuple[list[FileTags], str]:
+) -> tuple[list[FileTags], str, dict[str, int]]:
     parsers = parsers or TreeSitterParsers()
     config = config or load_config(root)
     created_cache = cache is None
@@ -116,13 +123,13 @@ def collect_tags(
     lister = _as_lister(root, source, no_git=no_git, extra=config.exclude)
     exclude = compile_exclude_spec(config)
     try:
-        tags_out, tree, live = _collect_from_lister(
+        tags_out, tree, live, sizes = _collect_from_lister(
             root, lister, parsers, cache, config, exclude
         )
         if save:
             cache.prune(live)
             cache.save()
-        return tags_out, tree
+        return tags_out, tree, sizes
     finally:
         if created_cache:
             cache.close()
@@ -151,10 +158,11 @@ def _collect_from_lister(
     cache: TagCache,
     config: GaudiConfig,
     exclude: PathSpec,
-) -> tuple[list[FileTags], str, set[str]]:
+) -> tuple[list[FileTags], str, set[str], dict[str, int]]:
     hashed: list[tuple[str, str]] = []
     tags_out: list[FileTags] = []
     live: set[str] = set()
+    sizes: dict[str, int] = {}
     misses: list[tuple[str, bytes, str, str]] = []
     for rel in lister.list_rel_paths():
         norm = rel.replace("\\", "/")
@@ -177,6 +185,7 @@ def _collect_from_lister(
             continue
         digest = content_hash(data)
         hashed.append((norm, digest))
+        sizes[norm] = size
         live.add(digest)
         cached = cache.get(digest)
         if cached is not None:
@@ -200,7 +209,7 @@ def _collect_from_lister(
         tags_out.append(tags)
 
     hashed.sort()
-    return tags_out, tree_fingerprint(hashed), live
+    return tags_out, tree_fingerprint(hashed), live, sizes
 
 
 def _extract_misses(
@@ -253,7 +262,7 @@ def render_map(
 ) -> str:
     header = _header(head, dirty, tree)
     files_meta = _ranked_files(tags, scores)
-    body, shown, total = render_body(files_meta, map_tokens, header_len=len(header))
+    body, shown, total, _shown_paths = render_body(files_meta, map_tokens, header_len=len(header))
     if not body:
         body = "(empty — no supported-language defs)\n"
     footer = f"showing {shown} of {total} files\n"
@@ -312,11 +321,12 @@ def render_body(
     *,
     header_len: int,
     seed_paths: set[str] | None = None,
-) -> tuple[str, int, int]:
+) -> tuple[str, int, int, list[str]]:
     budget = max(map_tokens, 1) * 4
     footer_reserve = len("showing 99999 of 99999 files\n")
     limit = max(budget - footer_reserve, header_len + 1)
     body_parts: list[str] = []
+    shown_paths: list[str] = []
     used = header_len
     shown = 0
     total = sum(1 for _path, ranked, _all in files_meta if ranked)
@@ -352,10 +362,11 @@ def render_body(
         body_parts.append(block)
         used += extra
         shown += 1
+        shown_paths.append(path)
 
     if not body_parts:
-        return "", 0, total
-    return "\n".join(body_parts) + "\n", shown, total
+        return "", 0, total, []
+    return "\n".join(body_parts) + "\n", shown, total, shown_paths
 
 
 def _source_order(defs: list[DefTag]) -> list[DefTag]:
@@ -390,7 +401,7 @@ def generate(
         warn_if_map_hidden(root)
     config = load_config(root, map_tokens)
     lister = detect_lister(root, no_git=no_git, extra_excludes=config.exclude)
-    tags, tree = collect_tags(
+    tags, tree, source_bytes = collect_tags(
         root, lister, parsers=parsers, save=True, config=config, no_git=no_git
     )
     scores = pagerank_defs(tags)
@@ -400,13 +411,29 @@ def generate(
     dest.write_text(text, encoding="utf-8", newline="\n")
     elapsed = time.perf_counter() - started
     n_defs = sum(len(t.defs) for t in tags)
+    emitted = token_count(text)
+    baseline = sum(tokens_from_size(size) for size in source_bytes.values())
+    saved = max(baseline - emitted, 0)
+    from gaudi.ledger import try_record_query
+
+    try_record_query(
+        root,
+        "generate",
+        emitted,
+        baseline,
+        [(path, tokens_from_size(size)) for path, size in source_bytes.items()],
+        enabled=config.ledger.enabled,
+    )
     return GenerateResult(
         path=dest,
         files=len(tags),
         defs=n_defs,
-        tokens=token_count(text),
+        tokens=emitted,
         elapsed=elapsed,
         text=text,
+        source_bytes=source_bytes,
+        baseline_tokens=baseline,
+        saved_tokens=saved,
     )
 
 
@@ -430,18 +457,7 @@ def is_fresh(root: Path, parsers: ParserPort | None = None, *, no_git: bool = Fa
     lister = detect_lister(root, no_git=no_git)
     if head != lister.head_sha():
         return False
-    cache = TagCache(root, readonly=True)
-    try:
-        _, current_tree = collect_tags(
-            root,
-            lister,
-            parsers=parsers,
-            cache=cache,
-            save=False,
-            no_git=no_git,
-        )
-    finally:
-        cache.close()
+    _, current_tree, _ = collect_tags(root, lister, parsers=parsers, save=False, no_git=no_git)
     return tree == current_tree
 
 
