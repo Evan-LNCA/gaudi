@@ -73,6 +73,11 @@ def test_check_ship_fails_without_dockerignore(tmp_path: Path, git_repo) -> None
         check_ship(git_repo)
 
 
+def test_check_ship_allows_non_root_map_negation(git_repo) -> None:
+    (git_repo / ".dockerignore").write_text(".map\n.gaudi/\n!src/**/*.map\n", encoding="utf-8")
+    check_ship(git_repo)
+
+
 def test_session_start_two_lines_no_bodies(git_repo) -> None:
     generate(git_repo)
     out = handle_session_start({"workspace_roots": [str(git_repo)]})
@@ -120,7 +125,7 @@ def test_merge_hooks_detects_py_dash_three() -> None:
 
 
 def test_install_copilot_instructions_and_targets(git_repo) -> None:
-    from gaudi.paths import COPILOT_INSTRUCTIONS_REL, COPILOT_SKILL_REL, RULE_REL
+    from gaudi.paths import CACHE_REL, COPILOT_INSTRUCTIONS_REL, COPILOT_SKILL_REL, MAP_REL, RULE_REL
 
     # Target: copilot only
     install(git_repo, python_cmd="python", target="copilot")
@@ -132,6 +137,8 @@ def test_install_copilot_instructions_and_targets(git_repo) -> None:
     assert "gaudi status" in skill
     assert "gaudi generate" in skill
     assert not (git_repo / RULE_REL).exists()
+    assert not (git_repo / MAP_REL).exists()
+    assert not (git_repo / CACHE_REL).exists()
 
     # Target: all (idempotent, adds cursor rule without duplicating copilot section)
     install(git_repo, python_cmd="python", target="all")

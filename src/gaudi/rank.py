@@ -85,7 +85,9 @@ def personalization_from_seeds(files: list[FileTags], seeds: list[str]) -> dict[
     seed_weights: dict[str, float] = defaultdict(float)
     for seed in seeds:
         norm = seed.replace("\\", "/").lstrip("./")
-        matched_paths = [p for p in paths if p == norm or p.endswith("/" + norm) or p.startswith(norm)]
+        matched_paths = [
+            p for p in paths if p == norm or p.endswith("/" + norm) or p.startswith(norm + "/")
+        ]
         if matched_paths:
             for p in matched_paths:
                 seed_weights[p] += 1.0

@@ -191,7 +191,7 @@ metadata, and a source-tree fingerprint of supported-language files.
 `gaudi status` ignores dirty: editing a non-source file does not force a
 regenerate. `status` opens the tag cache read-only and does not write it.
 
-Query commands parse the live tree and update the tag cache. If `.map` is
+Query commands parse the live tree without writing cache or map files. If `.map` is
 absent, their freshness line is `true` (the answer is live). If `.map` is
 present, `fresh: true` only when that map still matches HEAD + tree.
 

@@ -242,8 +242,6 @@ def install(
     python_cmd = python_cmd or detect_python_command()
     confirm_fn = confirm or _default_confirm
 
-    update_all_ignore_files(root)
-
     install_cursor = target in ("cursor", "all", "both")
     install_copilot = target in ("copilot", "all", "both")
     install_claude = target in ("claude", "all", "both")

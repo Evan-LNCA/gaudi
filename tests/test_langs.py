@@ -14,6 +14,7 @@ _GOLDENS: list[tuple[str, str, tuple[str, ...]]] = [
     ("mod.py", "def alpha():\n    return 1\n", ("alpha",)),
     ("mod.js", "export function beta() {\n  return 1;\n}\n", ("beta",)),
     ("mod.ts", "export function gamma(): number {\n  return 1;\n}\n", ("gamma",)),
+    ("mod.tsx", "export function GammaView(): JSX.Element {\n  return <div />;\n}\n", ("GammaView",)),
     ("mod.go", "package main\n\nfunc Delta() int {\n\treturn 1\n}\n", ("Delta",)),
     ("mod.rs", "pub fn epsilon() -> i32 {\n    1\n}\n", ("epsilon",)),
     (
