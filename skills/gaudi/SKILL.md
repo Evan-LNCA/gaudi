@@ -34,9 +34,8 @@ gaudi status
 ```
 
 `gaudi focus` prints a personalized neighborhood to stdout and never writes `.map`.
-Use `--format json` when another tool will consume the result. If the freshness
-line says stale, run `gaudi generate` before relying on a saved `.map`. Cloud
-Agent does not run Cursor sessionStart, so it must check itself.
+If the map or cache is missing or stale, run `gaudi generate` before relying on
+queries. Cloud Agent does not run Cursor sessionStart, so it must check itself.
 
 Read the actual source files before making edits. Do not infer behavior,
 ownership, or implementation details from Gaudi output alone. Trust truncation

@@ -1,13 +1,38 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "gaudi"
 version = "0.1.0"
-description = "Ranked signature map for Cursor agents (tree-sitter + PageRank)"
+description = "Ranked codebase map and query engine for AI coding agents (tree-sitter + PageRank)"
 readme = "README.md"
 requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Evan Infantino" }]
+keywords = [
+  "ai",
+  "agents",
+  "code-map",
+  "codebase",
+  "pagerank",
+  "static-analysis",
+  "tree-sitter",
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Software Development :: Documentation",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Typing :: Typed",
+]
 dependencies = [
   "tree-sitter>=0.25",
   "tree-sitter-language-pack>=0.7",
@@ -17,6 +42,11 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "ruff>=0.8", "mypy>=1.13"]
+
+[project.urls]
+Homepage = "https://github.com/Evan-LNCA/gaudi"
+Repository = "https://github.com/Evan-LNCA/gaudi"
+Issues = "https://github.com/Evan-LNCA/gaudi/issues"
 
 [project.scripts]
 gaudi = "gaudi.cli:main"

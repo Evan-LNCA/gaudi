@@ -25,23 +25,30 @@ Runtime dependencies are declared in `pyproject.toml`:
 - `networkx`
 - `pathspec`
 
-## Install for local development
-
-From this repository (no machine-specific paths):
+## Install
 
 ```bash
-python -m pip install -e .
-python -m pip install -e ".[dev]"
+python -m pip install git+https://github.com/Evan-LNCA/gaudi
 ```
 
-PowerShell is the same:
+Then wire up a repository and build its first map:
 
-```powershell
-python -m pip install -e .
-python -m pip install -e ".[dev]"
+```bash
+cd /path/to/your/repo
+gaudi install
 ```
 
 `python -m gaudi` works if the `gaudi` console script is not on `PATH`.
+
+### From a local checkout
+
+```bash
+git clone https://github.com/Evan-LNCA/gaudi
+cd gaudi
+python -m pip install -e ".[dev]"
+```
+
+PowerShell is the same.
 
 ## When to run
 
@@ -217,15 +224,23 @@ python benchmarks/bench.py
 
 ## Cursor setup notes
 
-Gaudi cannot flip IDE settings. After the first `gaudi install` in a real project:
+Gaudi cannot flip IDE settings. After the first `gaudi install` in a project:
 
 1. Cursor **Settings → Hooks**: enable project hooks / trust the workspace.
-2. Open the **Hooks** output channel. Start a **new Agent chat**. Confirm `gaudi_session_start` ran and injected a ~2-line status (`Gaudi map: fresh` or `STALE`), not the map body.
-3. One-time: `python -m pip install -e .` on the Python Cursor uses for hooks (from this repository).
-4. Optional: add a git remote for this repo if you want it on origin (do not expect a push from install).
+2. Open the **Hooks** output channel and start a **new Agent chat**. Confirm
+   `gaudi_session_start` ran and injected a ~2-line status (`Gaudi map: fresh`
+   or `STALE`), not the map body.
+3. Make sure Gaudi is installed on the Python interpreter Cursor uses for hooks.
 
-Until those steps are confirmed, hook runtime in Cursor is **unverified**.
+## Skills
 
-## User skill source
+The repository ships the same skill content in three places, all generated from
+`src/gaudi/assets/gaudi-skill.md`:
 
-User skill: `/gaudi` at `skills/gaudi/SKILL.md` in this repository.
+- `skills/gaudi/SKILL.md` — user-level `/gaudi` skill.
+- `.github/skills/gaudi/SKILL.md` — Copilot skill, installed by `gaudi install`.
+- `src/gaudi/assets/gaudi-skill.md` — packaged source of truth.
+
+## License
+
+[MIT](LICENSE)

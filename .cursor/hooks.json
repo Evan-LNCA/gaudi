@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "type": "command",
+        "command": "python .cursor/hooks/gaudi_session_start.py"
+      }
+    ],
+    "stop": [
+      {
+        "type": "command",
+        "command": "python .cursor/hooks/gaudi_stop.py"
+      }
+    ]
+  }
+}
